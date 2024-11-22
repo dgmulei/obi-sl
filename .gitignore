@@ -1,7 +1,26 @@
+# Virtual Environment
 venv/
 venv311/
+env/
+.env/
+.venv/
+ENV/
+*env*/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Development
 .env
 .DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
 chroma_db/
