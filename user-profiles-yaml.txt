@@ -1,0 +1,170 @@
+users:
+  - id: harold_wright
+    personal:
+      full_name: Harold Benjamin Wright
+      primary_language: English
+      dob: 1952-01-20
+      gender: Male
+      physical_attributes:
+        eye_color: Blue
+        height: 5'9"
+      ssn: 123-45-6789
+    addresses:
+      residential:
+        street: 12 Maplewood Lane
+        city: Westfield
+        state: MA
+        zip: 01085
+      mailing:
+        same_as_residential: true
+    license:
+      current:
+        type: Standard Class D
+        purpose: Passenger Vehicle
+        service: Renewal
+        number: MA123456789
+        expiration: 2024-12-18
+        restrictions:
+          - Corrective Lenses Required
+      previous:
+        issue_date: 2020-12-03
+    documentation:
+      identity:
+        type: U.S. Passport
+        issued: 2016-01
+        expires: 2026-01
+      residency:
+        type: Utility Bill
+        provider: Electric
+        date: 2024-11-15
+      ssn_proof: Social Security Card
+      lawful_presence: U.S. Passport
+    additional:
+      organ_donor: true
+      emergency_contact:
+        name: Edith Wright
+        relationship: Wife
+        phone: (413) 555-6789
+      military_status: N/A
+      voter_registration:
+        registered: true
+        location: Westfield, MA
+    health:
+      impairments: false
+      medications_affect_driving: false
+      license_suspensions: false
+    payment:
+      card_number: 4111111111111111
+      expiration: 2026-02
+      cvv: "123"
+      billing_address:
+        street: 12 Maplewood Lane
+        city: Westfield
+        state: MA
+        zip: 01085
+    metadata:
+      signature_date: 2024-11-20
+      bagman_description: >
+        Prefers being called "Harry." A retired high school teacher. Organized, prepared, and chatty.
+        Appreciates clarity and professionalism but dislikes being rushed or treated impersonally.
+
+        Recently renewed his U.S. passport and is confident all his documentation is in order for his driver's
+        license renewal. At 72 years old, Harry is a retired high school teacher who values clear communication
+        and appreciates when interactions reflect patience and understanding. He's proactive and has
+        double-checked the required documents but values reassurance that he hasn't overlooked anything.
+
+        Harry is likely to respond well to a warm and respectful tone, particularly one that acknowledges
+        his efforts in preparing for the renewal. He will appreciate an agent who takes the time to confirm
+        his paperwork and explains each step of the renewal process, even if it's straightforward. A little
+        patience will go a long way in making his day.
+
+        Confirm Harry's documents are in order, providing reassurance before proceeding to the next step.
+        Deliver exceptional clarity and professionalism. Use clear, step-by-step language while processing
+        the renewal. Ensure Harry leaves the interaction feeling valued, respected, and confident in the process.
+
+  - id: sarah_chen
+    personal:
+      full_name: Sarah Li Chen
+      primary_language: English
+      dob: 1989-03-15
+      gender: Female
+      physical_attributes:
+        eye_color: Brown
+        height: 5'4"
+      ssn: 987-65-4321
+    addresses:
+      residential:
+        street: 789 Arbor Way
+        city: Jamaica Plain
+        state: MA
+        zip: 02130
+      mailing:
+        same_as_residential: true
+    license:
+      current:
+        type: Standard Class D
+        purpose: Passenger Vehicle
+        service: Renewal
+        number: MA987654321
+        expiration: 2024-12-15
+        restrictions: []
+      previous:
+        issue_date: null
+    documentation:
+      identity:
+        type: U.S. Passport
+        issued: 2020-05
+        expires: 2030-05
+      residency:
+        type: Lease Agreement
+        provider: Jamaica Plain Housing
+        date: 2024-01-01
+      ssn_proof: Social Security Card
+      lawful_presence: U.S. Passport
+    additional:
+      organ_donor: false
+      emergency_contact:
+        name: John Chen
+        relationship: Spouse
+        phone: (617) 555-1234
+      military_status: N/A
+      voter_registration:
+        registered: true
+        location: Jamaica Plain, MA
+    health:
+      impairments: false
+      medications_affect_driving: false
+      license_suspensions: false
+    payment:
+      card_number: 5555555555554444
+      expiration: 2025-09
+      cvv: "321"
+      billing_address:
+        street: 789 Arbor Way
+        city: Jamaica Plain
+        state: MA
+        zip: 02130
+    metadata:
+      signature_date: 2024-11-19
+      bagman_description: >
+        Sarah, 35, lives in Jamaica Plain and is a working professional balancing a busy schedule. She prefers
+        concise, direct communication and values efficiency. Sarah becomes frustrated when processes are
+        unclear or unnecessarily complicated but appreciates a proactive approach from service agents.
+
+        Sarah's driver's license is up for renewal, but unpaid fines need to be resolved first. Sarah's fines are as follows:
+        1) Improper lane change violation from 09/15/23 - $105
+        2) Failure to yield right of way from 10/02/23 - $150
+        The total amount due is $255.
+        
+        While aware of the fines, she's unsure how to address them efficiently. Sarah has provided the required 
+        documents but feels anxious about delays and needs reassurance that she's on the right track. She values 
+        quick, clear instructions that respect her time.
+
+        Sarah responds best to a professional and efficient tone with minimal small talk. Acknowledge her
+        concerns but stay focused on solutions. She values agents who anticipate her needs, simplify the
+        process, and avoid repetitive explanations.
+
+        Confirm the unpaid fines and clearly explain their impact on her renewal. Provide precise next steps for
+        resolving the fines, including payment options or referrals. Once resolved, verify her documents and
+        complete the renewal promptly. Use direct, solution-oriented communication. Avoid unnecessary details
+        or delays. Ensure Sarah feels her time is respected, leaving her confident that the process is efficiently resolved.

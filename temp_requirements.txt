@@ -1,0 +1,17 @@
+anthropic==0.7.7
+streamlit==1.31.1
+sentence-transformers==2.2.2
+chromadb==0.4.22
+typing-extensions==4.9.0
+python-dotenv==1.0.1
+tqdm==4.66.1
+numpy==1.24.3
+torch==2.1.2
+pyyaml==6.0.1
+tenacity==8.2.3
+packaging==23.2
+click==8.1.7
+markdown-it-py==3.0.0
+protobuf==4.25.2
+watchdog==3.0.0
+requests==2.31.0
