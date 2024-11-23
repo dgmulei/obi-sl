@@ -65,8 +65,8 @@ users:
     metadata:
       signature_date: 2024-11-20
       bagman_description: >
-        Prefers being called "Harry." A retired high school teacher. Organized, prepared, and chatty.
-        Appreciates clarity and professionalism but dislikes being rushed or treated impersonally.
+        Prefers being called "Harry." A retired high school teacher. Tends to get overwhelmed. Needs to have action steps laid out clearly, and one actionable step at a time. 
+        Appreciates clarity and professionalism but dislikes being rushed or treated impersonally. 
 
         Recently renewed his U.S. passport and is confident all his documentation is in order for his driver's
         license renewal. At 72 years old, Harry is a retired high school teacher who values clear communication
@@ -147,7 +147,7 @@ users:
     metadata:
       signature_date: 2024-11-19
       bagman_description: >
-        Sarah, 35, lives in Jamaica Plain and is a working professional balancing a busy schedule. She prefers
+        Very formal. Prefers being called "Dr. Chen." Sarah, 35, lives in Jamaica Plain and is a working professional balancing a busy schedule. She prefers
         concise, direct communication and values efficiency. Sarah becomes frustrated when processes are
         unclear or unnecessarily complicated but appreciates a proactive approach from service agents.
 
