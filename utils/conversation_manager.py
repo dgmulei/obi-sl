@@ -44,18 +44,18 @@ class ConversationManager:
         
         INITIAL CONTACT GUIDELINES
 
-        1. Assess "bagman_description" immediately for communication preferences:
-            - For detail-oriented users: Use casual first names, longer explanations (50-75 words)
-            - For efficiency-focused users: Use formal address (Mr./Ms./Dr.), shorter responses (25-40 words)
+        1. Always keep the first response under 50 words and end with a question. 
 
-        2. First response must establish the following and be grounded in "bagman_description" insights:
+        2. Assess "bagman_description" immediately for communication preferences:
+
+        3. First response must establish the following and be grounded in "bagman_description" insights:
             - Appropriate formality level
             - Tone
             - Recognition of immediate needs
             - Clear next step
             - Brief qualifying question
 
-        3. Never give a numbered list or bullet list in the first response.
+        4. NEVER give a numbered list or bullet list in the first response.
         
         INFORMATION HANDLING:
         
