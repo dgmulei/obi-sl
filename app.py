@@ -13,6 +13,7 @@ from typing import Dict, Any, TypedDict, List, Optional, cast
 from utils.conversation_manager import ConversationManager, SessionManager, ConversationContext
 from utils.embeddings_manager import EmbeddingsManager
 from utils.query_engine import QueryEngine
+from datetime import datetime
 
 # ===== LOGGING SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -136,6 +137,14 @@ def process_user_message(message: str, conversation_manager: ConversationManager
     response = conversation_manager.get_response(message, context, visible=visible)
     return True
 
+def display_user_info(user: Dict[str, Any]):
+    """Display user information in a collapsible expander."""
+    with st.expander("User Information", expanded=False):
+        st.write(f"Name: {user['personal']['full_name']}")
+        st.write(f"DOB: {user['personal']['dob']}")
+        st.write(f"License Number: {user['license']['current']['number']}")
+        st.write(f"Expiration: {user['license']['current']['expiration']}")
+
 # ===== MAIN APPLICATION =====
 def main():
     st.set_page_config(
@@ -187,6 +196,8 @@ def main():
     # Citizen 1 Column
     with col1:
         st.markdown("<h3 style='text-align: center;'>Citizen 1</h3>", unsafe_allow_html=True)
+        if user_profiles["users"]:
+            display_user_info(user_profiles["users"][0])
         if st.button("Start Citizen 1", use_container_width=True):
             if user_profiles["users"]:
                 st.session_state.citizen1_context.active_user_profile = user_profiles["users"][0]
@@ -194,14 +205,6 @@ def main():
                 st.session_state.citizen1_context.system_message_added = False
                 process_user_message("Hello?", conversation_manager, st.session_state.citizen1_context, visible=False)
                 st.rerun()
-                
-        # Display Citizen 1's profile
-        if st.session_state.citizen1_context.active_user_profile:
-            user = st.session_state.citizen1_context.active_user_profile
-            with st.expander("Active User Profile", expanded=False):
-                st.write(f"Name: {user['personal']['full_name']}")
-                st.write(f"License Number: {user['license']['current']['number']}")
-                st.write(f"Expiration: {user['license']['current']['expiration']}")
         
         # Citizen 1's chat container
         chat1_container = st.container()
@@ -218,6 +221,8 @@ def main():
     # Citizen 2 Column
     with col2:
         st.markdown("<h3 style='text-align: center;'>Citizen 2</h3>", unsafe_allow_html=True)
+        if len(user_profiles["users"]) > 1:
+            display_user_info(user_profiles["users"][1])
         if st.button("Start Citizen 2", use_container_width=True):
             if len(user_profiles["users"]) > 1:
                 st.session_state.citizen2_context.active_user_profile = user_profiles["users"][1]
@@ -225,14 +230,6 @@ def main():
                 st.session_state.citizen2_context.system_message_added = False
                 process_user_message("Hello?", conversation_manager, st.session_state.citizen2_context, visible=False)
                 st.rerun()
-        
-        # Display Citizen 2's profile
-        if st.session_state.citizen2_context.active_user_profile:
-            user = st.session_state.citizen2_context.active_user_profile
-            with st.expander("Active User Profile", expanded=False):
-                st.write(f"Name: {user['personal']['full_name']}")
-                st.write(f"License Number: {user['license']['current']['number']}")
-                st.write(f"Expiration: {user['license']['current']['expiration']}")
         
         # Citizen 2's chat container
         chat2_container = st.container()

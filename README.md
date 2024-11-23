@@ -1,4 +1,4 @@
-# Obi - Driver's License Renewal Guide
+# OBI - Massachusetts RMV Service Agent
 
 A Streamlit-based conversational AI assistant that helps citizens navigate the driver's license renewal process.
 
