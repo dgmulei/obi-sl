@@ -3,6 +3,7 @@ from datetime import datetime
 import uuid
 from pymongo import MongoClient
 import logging
+import certifi
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +15,10 @@ class ChatLogger:
             if not mongodb_uri:
                 raise ValueError("MongoDB URI is required")
             
-            # Ensure TLS settings are in the connection string
-            if '?' in mongodb_uri:
-                if 'tls=true' not in mongodb_uri:
-                    mongodb_uri += '&tls=true'
-            else:
-                mongodb_uri += '?tls=true'
-            
+            # Use certifi for SSL certificate verification
             self.client = MongoClient(
                 mongodb_uri,
-                tls=True,
-                tlsAllowInvalidCertificates=True  # For development/testing
+                tlsCAFile=certifi.where()
             )
             self.db = self.client.obi_chat_logs
             self.threads = self.db.threads
