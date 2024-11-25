@@ -111,15 +111,20 @@ def initialize_components():
     # Initialize query engine with the existing collection
     query_engine = QueryEngine(collection=collection)
     
-    # Check for Anthropic API key
+    # Check for required API keys
     anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
     if not anthropic_api_key:
         raise ValueError("Anthropic API key not found")
     
-    # Initialize conversation manager
+    mongodb_uri = os.getenv('MONGODB_URI')
+    if not mongodb_uri:
+        logger.warning("MongoDB URI not found. Chat logging will be disabled.")
+    
+    # Initialize conversation manager with MongoDB URI
     conversation_manager = ConversationManager(
         query_engine=query_engine,
-        api_key=anthropic_api_key
+        api_key=anthropic_api_key,
+        mongodb_uri=mongodb_uri
     )
     
     return embeddings_manager, query_engine, conversation_manager
@@ -158,7 +163,8 @@ def main():
         st.session_state.citizen1_context = ConversationContext(
             messages=[],
             system_message_added=False,
-            active_user_profile=None
+            active_user_profile=None,
+            thread_id=None  # Initialize thread_id as None
         )
         st.session_state.citizen1_input_key = 0
     
@@ -166,7 +172,8 @@ def main():
         st.session_state.citizen2_context = ConversationContext(
             messages=[],
             system_message_added=False,
-            active_user_profile=None
+            active_user_profile=None,
+            thread_id=None  # Initialize thread_id as None
         )
         st.session_state.citizen2_input_key = 0
     
@@ -203,6 +210,7 @@ def main():
                 st.session_state.citizen1_context.active_user_profile = user_profiles["users"][0]
                 st.session_state.citizen1_context.messages = []
                 st.session_state.citizen1_context.system_message_added = False
+                st.session_state.citizen1_context.thread_id = None  # Reset thread_id
                 process_user_message("Hello?", conversation_manager, st.session_state.citizen1_context, visible=False)
                 st.rerun()
         
@@ -228,6 +236,7 @@ def main():
                 st.session_state.citizen2_context.active_user_profile = user_profiles["users"][1]
                 st.session_state.citizen2_context.messages = []
                 st.session_state.citizen2_context.system_message_added = False
+                st.session_state.citizen2_context.thread_id = None  # Reset thread_id
                 process_user_message("Hello?", conversation_manager, st.session_state.citizen2_context, visible=False)
                 st.rerun()
         

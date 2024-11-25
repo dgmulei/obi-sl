@@ -6,6 +6,7 @@ import logging
 import time
 import re
 from datetime import datetime
+from .chat_logger import ChatLogger
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -30,76 +31,30 @@ class ConversationContext:
     last_query_results: Optional[List[QueryResult]] = None
     system_message_added: bool = False
     active_user_profile: Optional[Dict[str, Any]] = None
+    thread_id: Optional[str] = None
 
 class ConversationManager:
-    def __init__(self, query_engine: QueryEngine, api_key: str):
+    def __init__(self, query_engine: QueryEngine, api_key: str, mongodb_uri: Optional[str] = None):
         """Initialize conversation manager with query engine and Anthropic credentials."""
         if not isinstance(api_key, str):
             raise ValueError("API key must be a string")
         self.query_engine = query_engine
         self.client = anthropic.Anthropic(api_key=api_key)
+        self.chat_logger = ChatLogger(mongodb_uri) if mongodb_uri else None
         
         # Core system prompt for Obi's behavior
-        self.system_prompt: str = """You are a professional guide helping Massachusetts citizens renew their driver's licenses. Adapt your approach based on user profiles: warm and methodical for detail-oriented users, crisp and efficient for time-sensitive users. NEVER use exclamation points. Use natural questions to guide the conversation forward, ensuring they flow from the discussion rather than feeling tacked on. Your goal is to guide effectively, matching each user's preferred communication style.
-        
-        INITIAL CONTACT GUIDELINES
+        self.system_prompt: str = """You are Obi, a professional guide helping Massachusetts citizens renew their driver's licenses. 
 
-        1. Always keep the first response under 50 words and end with a question. 
+KEY GUIDELINES:
+1. Adapt your approach based on user profiles: warm and methodical for detail-oriented users, crisp and efficient for time-sensitive users
+2. NEVER use exclamation points
+3. Ask only ONE question at a time
+4. NEVER simulate user responses or create hypothetical dialogue
+5. Wait for actual user responses
+6. Keep responses focused and direct
+7. Guide the conversation naturally, letting questions flow from the discussion
 
-        2. Assess "bagman_description" immediately for communication preferences:
-
-        3. First response must establish the following and be grounded in "bagman_description" insights:
-            - Appropriate formality level
-            - Tone
-            - Recognition of immediate needs
-            - Clear next step
-            - Brief qualifying question
-
-        4. NEVER give a numbered list or bullet list in the first response.
-        
-        INFORMATION HANDLING:
-        
-        1. Available Information:
-            - State it confidently.
-            - Adjust context based on user profile details, especially "bagman_description":
-                - ie, Detail-oriented users: Provide supporting context and explanations
-                - ie, Efficiency-focused users: State essential facts only
-            - Connect related information to the user's situation or goal.
-
-        2. Partially Available Information:
-            - Share what you know.
-            - Tailor verification approach:
-                - ie, Detail-oriented users: Offer to help research and explain verification process
-                - ie, Efficiency-focused users: Provide direct resource links with minimal explanation
-
-        3. Unavailable Information:
-            - Acknowledge limitations transparently.
-            - Focus on next steps.
-            - Profile-based resource sharing, with a priority given to "bagman_description" insights:
-                - ie, Detail-oriented users: Explain available resource options
-                - ie, Efficiency-focused users: Share single best resource
-
-        4. Complex Scenarios:
-            - Collaborate with users by providing step-by-step guidance and connecting details from different sections when necessary.
-            - Guide users to official verification when necessary.
-
-        TONE AND STYLE:
-        1. Never use exclamation points. Maintain a calm, professional tone that conveys confidence without excessive enthusiasm.
-        2. Adjust formality based on user profile, with a priority given to "bagman_description" insights.
-        3. Acknowledge user effort by describing their actions in a straightforward and professional manner, focusing on what they've done or are ready to do without overly praising or labeling behavior (e.g., avoid terms like "proactive").
-        4. Empathize with challenges based on user input, but avoid over-empathizing. For users who may value reassurance, offer calm and supportive guidance. For users who prefer efficiency, briefly acknowledge obstacles and move quickly to actionable solutions.
-        5. Avoid excessive praise, but offer practical encouragement to build confidence and keep users engaged.
-        6. Adjust the pacing and level of detail based on user preferences, with a priority given to "bagman_description" insights:
-
-        BEHAVIORAL GUIDANCE:
-        1. Use document information confidently when available.
-        2. Synthesize related information into one clear, actionable step at a time.
-        3. Frame solutions in user-specific terms that align with the user's needs and preferences, with a priority given to "bagman_description" insights.
-        4. Recommend helpful actions (e.g., scheduling appointments or gathering documents). Adapt recommendations to user preferences and personality traits. 
-        5. Present information for confirmation when needed.
-        6. If users express frustration or confusion, immediately switch to one-clear-step-at-a-time guidance.
-        7. Ensure accessibility for users with disabilities or special needs.
-        9. Log unresolved queries for future improvements."""
+Your goal is to guide effectively while matching each user's preferred communication style."""
     
     def _format_context(self, query_results: List[QueryResult]) -> str:
         """Format retrieved documents into context string."""
@@ -122,9 +77,6 @@ class ConversationManager:
         # Format bullet points onto separate lines
         text = re.sub(r'([.!?])\s*(•)', r'\1\n\n\2', text)
         text = re.sub(r'([^•])\s*•', r'\1\n\n•', text)
-        
-        # Add line breaks before questions at the end
-        text = re.sub(r'([.!?])\s*(Which|What|How|Would|Could|Can|Do|Does|Is|Are|Should|Will|Where|When)\s', r'\1\n\n\2 ', text)
         
         return text
 
@@ -167,14 +119,18 @@ class ConversationManager:
   * Number: {user_profile['license']['current']['number']}
   * Expiration: {user_profile['license']['current']['expiration']}
 - Address: {user_profile['addresses']['residential']['street']}, {user_profile['addresses']['residential']['city']}, {user_profile['addresses']['residential']['state']} {user_profile['addresses']['residential']['zip']}
-- Additional Notes: {bagman_info}
-"""
+- Additional Notes: {bagman_info}"""
             prompt_parts.append(profile_context)
         
-        # Add conversation history without explicit role prefixes
+        # Format conversation history as a clear dialogue
+        conversation = []
         for msg in messages:
             if msg.role != "system":
-                prompt_parts.append(msg.content)
+                prefix = "User" if msg.role == "user" else "Assistant"
+                conversation.append(f"{prefix}: {msg.content}")
+        
+        if conversation:
+            prompt_parts.append("Previous Conversation:\n" + "\n\n".join(conversation))
         
         return "\n\n".join(prompt_parts)
     
@@ -183,6 +139,10 @@ class ConversationManager:
         if not isinstance(query, str):
             raise ValueError("Query must be a string")
         
+        # Initialize thread_id if not present and chat_logger is available
+        if self.chat_logger and not context.thread_id:
+            context.thread_id = self.chat_logger.start_thread()
+        
         # Add system message if not already added
         if not context.system_message_added:
             context.messages.append(Message(role="system", content=self.system_prompt))
@@ -190,6 +150,10 @@ class ConversationManager:
         
         # Add user message
         context.messages.append(Message(role="user", content=query, visible=visible))
+        
+        # Log user message if chat_logger is available
+        if self.chat_logger and context.thread_id:
+            self.chat_logger.log_message(context.thread_id, "user", query)
         
         # Retrieve relevant documents
         query_results = self.query_engine.query(query)
@@ -245,6 +209,10 @@ class ConversationManager:
         # Add assistant response to context
         context.messages.append(Message(role="assistant", content=generated_response))
         
+        # Log assistant response if chat_logger is available
+        if self.chat_logger and context.thread_id:
+            self.chat_logger.log_message(context.thread_id, "assistant", generated_response)
+        
         return generated_response
 
 class SessionManager:
@@ -274,3 +242,4 @@ class SessionManager:
         # Reset conversation when switching users
         st.session_state.conversation_context.messages = []
         st.session_state.conversation_context.system_message_added = False
+        st.session_state.conversation_context.thread_id = None  # Reset thread_id for new conversation
