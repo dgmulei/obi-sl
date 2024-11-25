@@ -6,7 +6,6 @@ import logging
 import time
 import re
 from datetime import datetime
-from .chat_logger import ChatLogger
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -32,6 +31,24 @@ class ConversationContext:
     system_message_added: bool = False
     active_user_profile: Optional[Dict[str, Any]] = None
     thread_id: Optional[str] = None
+
+class DummyChatLogger:
+    """Fallback chat logger when MongoDB is not available."""
+    def __init__(self, *args, **kwargs):
+        pass
+    
+    def start_thread(self) -> str:
+        return "local-thread"
+    
+    def log_message(self, thread_id: str, role: str, content: str) -> None:
+        pass
+
+# Try to import ChatLogger, fall back to dummy if not available
+try:
+    from .chat_logger import ChatLogger
+except ImportError:
+    logger.warning("ChatLogger not available, using dummy logger")
+    ChatLogger = DummyChatLogger
 
 class ConversationManager:
     def __init__(self, query_engine: QueryEngine, api_key: str, mongodb_uri: Optional[str] = None):
