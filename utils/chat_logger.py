@@ -1,27 +1,58 @@
 from typing import List, Dict, Any
 from datetime import datetime
-import pymongo
-from pymongo import MongoClient
 import uuid
+from pymongo import MongoClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ChatLogger:
     def __init__(self, mongodb_uri: str):
         """Initialize ChatLogger with MongoDB connection."""
-        self.client = MongoClient(mongodb_uri)
-        self.db = self.client.obi_chat_logs
-        self.threads = self.db.threads
-        
-        # Create index on thread_id for faster queries
-        self.threads.create_index("thread_id")
+        try:
+            # Add TLS/SSL settings to connection
+            if not mongodb_uri:
+                raise ValueError("MongoDB URI is required")
+            
+            # Ensure TLS settings are in the connection string
+            if '?' in mongodb_uri:
+                if 'tls=true' not in mongodb_uri:
+                    mongodb_uri += '&tls=true'
+            else:
+                mongodb_uri += '?tls=true'
+            
+            self.client = MongoClient(
+                mongodb_uri,
+                tls=True,
+                tlsAllowInvalidCertificates=True  # For development/testing
+            )
+            self.db = self.client.obi_chat_logs
+            self.threads = self.db.threads
+            
+            # Create index on thread_id for faster queries
+            self.threads.create_index("thread_id")
+            
+            # Test connection
+            self.client.admin.command('ping')
+            logger.info("Successfully connected to MongoDB")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize MongoDB connection: {str(e)}")
+            raise
     
     def start_thread(self) -> str:
         """Start a new chat thread and return its ID."""
         thread_id = str(uuid.uuid4())
-        self.threads.insert_one({
-            "thread_id": thread_id,
-            "messages": []
-        })
-        return thread_id
+        try:
+            self.threads.insert_one({
+                "thread_id": thread_id,
+                "messages": []
+            })
+            logger.info(f"Started new thread: {thread_id}")
+            return thread_id
+        except Exception as e:
+            logger.error(f"Failed to start thread: {str(e)}")
+            raise
     
     def log_message(self, thread_id: str, role: str, content: str) -> None:
         """Log a message to a specific thread."""
@@ -31,57 +62,54 @@ class ChatLogger:
             "content": content
         }
         
-        self.threads.update_one(
-            {"thread_id": thread_id},
-            {"$push": {"messages": message}}
-        )
+        try:
+            self.threads.update_one(
+                {"thread_id": thread_id},
+                {"$push": {"messages": message}}
+            )
+            logger.debug(f"Logged message to thread {thread_id}")
+        except Exception as e:
+            logger.error(f"Failed to log message: {str(e)}")
+            raise
     
     def get_thread(self, thread_id: str) -> Dict[str, Any]:
         """Retrieve a complete thread by its ID."""
-        return self.threads.find_one({"thread_id": thread_id})
+        try:
+            return self.threads.find_one({"thread_id": thread_id})
+        except Exception as e:
+            logger.error(f"Failed to retrieve thread {thread_id}: {str(e)}")
+            raise
     
     def get_all_threads(self) -> List[Dict[str, Any]]:
         """Retrieve all chat threads."""
-        return list(self.threads.find({}))
+        try:
+            return list(self.threads.find({}))
+        except Exception as e:
+            logger.error(f"Failed to retrieve threads: {str(e)}")
+            raise
     
     def get_threads_in_timerange(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
         """Retrieve threads with messages in the specified time range."""
-        return list(self.threads.find({
-            "messages": {
-                "$elemMatch": {
-                    "timestamp": {
-                        "$gte": start_date,
-                        "$lte": end_date
+        try:
+            return list(self.threads.find({
+                "messages": {
+                    "$elemMatch": {
+                        "timestamp": {
+                            "$gte": start_date,
+                            "$lte": end_date
+                        }
                     }
                 }
-            }
-        }))
-
-# Example retrieval script:
-"""
-from datetime import datetime, timedelta
-from chat_logger import ChatLogger
-
-def analyze_chat_threads():
-    # Initialize ChatLogger with your MongoDB URI
-    logger = ChatLogger("your_mongodb_uri")
+            }))
+        except Exception as e:
+            logger.error(f"Failed to retrieve threads in timerange: {str(e)}")
+            raise
     
-    # Get all threads
-    all_threads = logger.get_all_threads()
-    print(f"Total threads: {len(all_threads)}")
-    
-    # Get threads from last 24 hours
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=1)
-    recent_threads = logger.get_threads_in_timerange(start_date, end_date)
-    print(f"Threads in last 24 hours: {len(recent_threads)}")
-    
-    # Print details of each thread
-    for thread in recent_threads:
-        print(f"\nThread ID: {thread['thread_id']}")
-        for msg in thread['messages']:
-            print(f"{msg['timestamp']} - {msg['role']}: {msg['content'][:100]}...")
-
-if __name__ == "__main__":
-    analyze_chat_threads()
-"""
+    def __del__(self):
+        """Ensure MongoDB connection is closed."""
+        if hasattr(self, 'client'):
+            try:
+                self.client.close()
+                logger.info("Closed MongoDB connection")
+            except Exception as e:
+                logger.error(f"Error closing MongoDB connection: {str(e)}")
