@@ -136,16 +136,6 @@ class ConversationManager:
         text = re.sub(r'([.!?])\s*(Which|What|How|Would|Could|Can|Do|Does|Is|Are|Should|Will|Where|When)\s', r'\1\n\n\2 ', text)
         
         return text
-
-    def _calculate_age(self, dob_str: str) -> int:
-        """Calculate age from date of birth string."""
-        try:
-            dob = datetime.strptime(dob_str, '%Y-%m-%d')
-            today = datetime.now()
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-            return age
-        except:
-            return 0
     
     def _create_prompt(self, messages: List[Message], current_query: str, doc_context: str) -> List[Dict[str, str]]:
         """Create the complete prompt including user profile context if available."""
@@ -179,9 +169,6 @@ class ConversationManager:
         if not bagman_info:
             logger.warning(f"No bagman description found for user {name_to_use}")
         
-        # Calculate age from date of birth
-        age = self._calculate_age(user_profile['personal']['dob'])
-        
         # Put user profile information at the beginning for prominence
         profile_context = f"""MANDATORY COMMUNICATION REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
 
@@ -189,7 +176,7 @@ class ConversationManager:
 
 CRITICAL USER DETAILS - REFERENCE THESE IN YOUR RESPONSES:
 - Name: {name_to_use}
-- Age: {age}
+- Date of Birth: {user_profile['personal']['dob']}
 - License Expiration: {user_profile['license']['current']['expiration']}
 - Primary Language: {user_profile['personal']['primary_language']}
 
