@@ -8,12 +8,15 @@ import streamlit as st
 import os
 import yaml
 import logging
+import json
 from dotenv import load_dotenv
 from typing import Dict, Any, TypedDict, List, Optional, cast
 from utils.conversation_manager import ConversationManager, SessionManager, ConversationContext
 from utils.embeddings_manager import EmbeddingsManager
 from utils.query_engine import QueryEngine
+from utils.chat_storage import ChatStorage
 from datetime import datetime
+import tempfile
 
 # ===== LOGGING SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +38,30 @@ class UserProfiles(TypedDict):
     users: List[UserProfile]
 
 # ===== INITIALIZATION FUNCTIONS =====
+def setup_gcp_credentials() -> None:
+    """Set up Google Cloud credentials from Streamlit secrets or local environment."""
+    try:
+        # First try to get credentials from environment variable
+        if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+            logger.info("Using GCP credentials from environment variable")
+            return
+
+        # Then try to use Streamlit secrets if available
+        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+            logger.info("Setting up GCP credentials from Streamlit secrets")
+            # Create a temporary file to store the credentials
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+                json.dump(dict(st.secrets['gcp_service_account']), f)
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
+            logger.info("Successfully set up GCP credentials from Streamlit secrets")
+            return
+
+        # If neither is available, raise an error
+        raise ValueError("No GCP credentials found in environment or Streamlit secrets")
+    except Exception as e:
+        logger.error(f"Failed to set up GCP credentials: {str(e)}")
+        raise
+
 def ensure_directories():
     """Ensure all required directories exist."""
     dirs = [
@@ -94,6 +121,32 @@ def get_embeddings_manager(_has_new_files: bool) -> EmbeddingsManager:
     return EmbeddingsManager(model_name=model_name, db_path=db_path)
 
 @st.cache_resource
+def get_chat_storage() -> Optional[ChatStorage]:
+    """Initialize chat storage with proper error handling."""
+    try:
+        # Ensure GCP credentials are set up
+        setup_gcp_credentials()
+        
+        # Get bucket name from environment or Streamlit secrets
+        bucket_name = os.getenv('GCS_BUCKET_NAME')
+        if not bucket_name and hasattr(st, 'secrets'):
+            bucket_name = st.secrets.get('GCS_BUCKET_NAME')
+        if not bucket_name:
+            raise ValueError("GCS_BUCKET_NAME not found in environment or secrets")
+        
+        # Set environment variable for ChatStorage
+        os.environ['GCS_BUCKET_NAME'] = bucket_name
+        
+        # Initialize storage
+        storage = ChatStorage()
+        logger.info("Successfully initialized chat storage")
+        return storage
+    except Exception as e:
+        logger.error(f"Failed to initialize chat storage: {str(e)}")
+        # Return None instead of raising to allow app to continue without storage
+        return None
+
+@st.cache_resource
 def initialize_components():
     logger.info("Starting initialization...")
     ensure_directories()
@@ -113,13 +166,19 @@ def initialize_components():
     
     # Check for Anthropic API key
     anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not anthropic_api_key and hasattr(st, 'secrets'):
+        anthropic_api_key = st.secrets.get('ANTHROPIC_API_KEY')
     if not anthropic_api_key:
         raise ValueError("Anthropic API key not found")
+    
+    # Initialize chat storage (may be None if initialization fails)
+    chat_storage = get_chat_storage()
     
     # Initialize conversation manager
     conversation_manager = ConversationManager(
         query_engine=query_engine,
-        api_key=anthropic_api_key
+        api_key=anthropic_api_key,
+        chat_storage=chat_storage  # May be None, which is handled by ConversationManager
     )
     
     return embeddings_manager, query_engine, conversation_manager
@@ -156,7 +215,7 @@ def main():
     # Initialize session states for both citizens
     if 'citizen1_context' not in st.session_state:
         st.session_state.citizen1_context = ConversationContext(
-            messages=[],
+            messages=[], 
             system_message_added=False,
             active_user_profile=None
         )

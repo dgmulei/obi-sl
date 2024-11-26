@@ -2,10 +2,12 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Literal
 import anthropic
 from .query_engine import QueryEngine, QueryResult
+from .chat_storage import ChatStorage
 import logging
 import time
 import re
 from datetime import datetime
+import uuid
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -30,14 +32,21 @@ class ConversationContext:
     last_query_results: Optional[List[QueryResult]] = None
     system_message_added: bool = False
     active_user_profile: Optional[Dict[str, Any]] = None
+    thread_id: str = ""
+
+    def __post_init__(self):
+        """Ensure thread_id is set."""
+        if not self.thread_id:
+            self.thread_id = str(uuid.uuid4())
 
 class ConversationManager:
-    def __init__(self, query_engine: QueryEngine, api_key: str):
-        """Initialize conversation manager with query engine and Anthropic credentials."""
+    def __init__(self, query_engine: QueryEngine, api_key: str, chat_storage: Optional[ChatStorage] = None):
+        """Initialize conversation manager with query engine, Anthropic credentials, and optional chat storage."""
         if not isinstance(api_key, str):
             raise ValueError("API key must be a string")
         self.query_engine = query_engine
         self.client = anthropic.Anthropic(api_key=api_key)
+        self.chat_storage = chat_storage
         
         # Core system prompt for Obi's behavior
         self.system_prompt: str = """You are a professional guide helping Massachusetts citizens renew their driver's licenses. Adapt your approach based on user profiles: warm and methodical for detail-oriented users, crisp and efficient for time-sensitive users. NEVER use exclamation points. Use natural questions to guide the conversation forward, ensuring they flow from the discussion rather than feeling tacked on. Your goal is to guide effectively, matching each user's preferred communication style.
@@ -244,6 +253,26 @@ class ConversationManager:
         
         # Add assistant response to context
         context.messages.append(Message(role="assistant", content=generated_response))
+        
+        # Save chat thread to storage if available
+        if self.chat_storage:
+            messages_for_storage = [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "visible": msg.visible
+                }
+                for msg in context.messages
+                if msg.role != "system"  # Exclude system messages from storage
+            ]
+            
+            try:
+                if context.messages:  # Only save if there are messages
+                    self.chat_storage.update_thread(context.thread_id, messages_for_storage)
+            except Exception as e:
+                logger.error(f"Failed to save chat thread: {str(e)}")
+                # Continue with response even if storage fails
         
         return generated_response
 
