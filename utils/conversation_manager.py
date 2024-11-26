@@ -147,45 +147,66 @@ class ConversationManager:
         except:
             return 0
     
-    def _create_prompt(self, messages: List[Message], user_profile: Optional[Dict[str, Any]] = None) -> str:
+    def _create_prompt(self, messages: List[Message], current_query: str, doc_context: str) -> List[Dict[str, str]]:
         """Create the complete prompt including user profile context if available."""
-        prompt_parts = []
+        formatted_messages = []
         
-        # Add system prompt
-        prompt_parts.append(self.system_prompt)
+        # Add conversation history with explicit roles, excluding system messages
+        for msg in messages:
+            if msg.role != "system" and msg.visible:
+                formatted_messages.append({"role": msg.role, "content": msg.content})
         
-        # Add user profile context if available
-        if user_profile:
-            # Extract name preference from bagman_description if available
-            bagman_info = user_profile.get('metadata', {}).get('bagman_description', '')
-            name_to_use = user_profile['personal']['full_name']
+        # Always include the current query as a user message with document context
+        formatted_messages.append({
+            "role": "user",
+            "content": f"{current_query}\n\nRelevant Document Context:\n{doc_context}"
+        })
+        
+        return formatted_messages
+    
+    def _get_enhanced_system_prompt(self, user_profile: Optional[Dict[str, Any]] = None) -> str:
+        """Get system prompt enhanced with user profile if available."""
+        if not user_profile:
+            return self.system_prompt
             
-            # Calculate age from date of birth
-            age = self._calculate_age(user_profile['personal']['dob'])
-            
-            # Add explicit instruction about name preference if available
-            if bagman_info:
-                prompt_parts.append(f"Important Note - {bagman_info}")
-            
-            profile_context = f"""Current User Profile:
+        # Extract name preference and bagman description
+        bagman_info = user_profile.get('metadata', {}).get('bagman_description', '')
+        name_to_use = user_profile['personal']['full_name']
+        
+        # Log the bagman description for debugging
+        logger.info(f"Bagman description for {name_to_use}: {bagman_info}")
+        
+        if not bagman_info:
+            logger.warning(f"No bagman description found for user {name_to_use}")
+        
+        # Calculate age from date of birth
+        age = self._calculate_age(user_profile['personal']['dob'])
+        
+        # Put user profile information at the beginning for prominence
+        profile_context = f"""MANDATORY COMMUNICATION REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
+
+{bagman_info}
+
+CRITICAL USER DETAILS - REFERENCE THESE IN YOUR RESPONSES:
 - Name: {name_to_use}
 - Age: {age}
-- Preferred Language: {user_profile['personal']['primary_language']}
-- License Details:
-  * Type: {user_profile['license']['current']['type']}
-  * Number: {user_profile['license']['current']['number']}
-  * Expiration: {user_profile['license']['current']['expiration']}
-- Address: {user_profile['addresses']['residential']['street']}, {user_profile['addresses']['residential']['city']}, {user_profile['addresses']['residential']['state']} {user_profile['addresses']['residential']['zip']}
-- Additional Notes: {bagman_info}
-"""
-            prompt_parts.append(profile_context)
+- License Expiration: {user_profile['license']['current']['expiration']}
+- Primary Language: {user_profile['personal']['primary_language']}
+
+IMPORTANT LICENSE INFORMATION:
+Type: {user_profile['license']['current']['type']}
+Number: {user_profile['license']['current']['number']}
+Address: {user_profile['addresses']['residential']['street']}, {user_profile['addresses']['residential']['city']}, {user_profile['addresses']['residential']['state']} {user_profile['addresses']['residential']['zip']}
+
+YOU MUST ADAPT YOUR COMMUNICATION STYLE TO MATCH THE USER'S PREFERENCES ABOVE.
+YOU MUST USE THE NAME PREFERENCE SPECIFIED IN THE COMMUNICATION REQUIREMENTS.
+YOU MUST MAINTAIN THIS STYLE CONSISTENTLY THROUGHOUT THE CONVERSATION.
+
+CORE SYSTEM INSTRUCTIONS:
+
+{self.system_prompt}"""
         
-        # Add conversation history without explicit role prefixes
-        for msg in messages:
-            if msg.role != "system":
-                prompt_parts.append(msg.content)
-        
-        return "\n\n".join(prompt_parts)
+        return profile_context
     
     def get_response(self, query: str, context: ConversationContext, visible: bool = True) -> str:
         """Generate a response using Claude based on query and conversation context."""
@@ -197,9 +218,6 @@ class ConversationManager:
             context.messages.append(Message(role="system", content=self.system_prompt))
             context.system_message_added = True
         
-        # Add user message
-        context.messages.append(Message(role="user", content=query, visible=visible))
-        
         # Retrieve relevant documents
         query_results = self.query_engine.query(query)
         context.last_query_results = query_results
@@ -207,11 +225,14 @@ class ConversationManager:
         # Format document context
         doc_context = self._format_context(query_results)
         
-        # Create complete prompt with document context
-        prompt = f"{self._create_prompt(context.messages, context.active_user_profile)}\n\nRelevant Document Context:\n{doc_context}"
+        # Create messages array for Claude
+        messages = self._create_prompt(context.messages, query, doc_context)
         
-        # Log the complete prompt for debugging
-        logger.info(f"Complete prompt with context:\n{prompt}")
+        # Get enhanced system prompt
+        system = self._get_enhanced_system_prompt(context.active_user_profile)
+        
+        # Log the complete system prompt for debugging
+        logger.info(f"Complete system prompt:\n{system}")
         
         # Try Claude 3.5 Sonnet first, fall back to Claude 3 Opus if overloaded
         try:
@@ -219,10 +240,8 @@ class ConversationManager:
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=500,
                 temperature=0.7,
-                system=self.system_prompt,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+                system=system,
+                messages=messages
             )
         except Exception as e:
             if "overloaded_error" in str(e):
@@ -233,10 +252,8 @@ class ConversationManager:
                     model="claude-3-opus-20240229",
                     max_tokens=500,
                     temperature=0.7,
-                    system=self.system_prompt,
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
+                    system=system,
+                    messages=messages
                 )
             else:
                 raise e
@@ -251,7 +268,8 @@ class ConversationManager:
         # Fix formatting issues in the response
         generated_response = self._fix_text_formatting(generated_response)
         
-        # Add assistant response to context
+        # Add user message and assistant response to context
+        context.messages.append(Message(role="user", content=query, visible=visible))
         context.messages.append(Message(role="assistant", content=generated_response))
         
         # Save chat thread to storage if available
